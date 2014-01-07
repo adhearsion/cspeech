@@ -2,3 +2,7 @@ cspeech
 =======
 
 Speech document (SSML, SRGS, NLSML) modelling and matching for C
+
+# Dependencies
+
+* [iksemel](https://code.google.com/p/iksemel/)
