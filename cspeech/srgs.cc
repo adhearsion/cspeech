@@ -49,6 +49,8 @@ static struct {
   std::map<const char *,struct tag_def *> tag_defs;
   /** library memory pool */
   switch_memory_pool_t *pool;
+  /** Callback for logging messages **/
+  int (*logging_callback)(void *context, cspeech_log_level_t log_level, const char *log_message, ...);
 } globals;
 
 /**
@@ -252,22 +254,34 @@ static void sn_log_node_open(struct srgs_node *node)
     case SNT_TAG:
     case SNT_ONE_OF:
     case SNT_GRAMMAR:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "<%s>\n", node->name);
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "<%s>\n", node->name);
+      }
       return;
     case SNT_RULE:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "<rule id='%s' scope='%s'>\n", node->value.rule.id, node->value.rule.is_public ? "public" : "private");
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "<rule id='%s' scope='%s'>\n", node->value.rule.id, node->value.rule.is_public ? "public" : "private");
+      }
       return;
     case SNT_ITEM:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "<item repeat='%i'>\n", node->value.item.repeat_min);
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "<item repeat='%i'>\n", node->value.item.repeat_min);
+      }
       return;
     case SNT_UNRESOLVED_REF:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "<ruleref (unresolved) uri='%s'\n", node->value.ref.uri);
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "<ruleref (unresolved) uri='%s'\n", node->value.ref.uri);
+      }
       return;
     case SNT_REF:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "<ruleref uri='#%s'>\n", node->value.ref.node->value.rule.id);
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "<ruleref uri='#%s'>\n", node->value.ref.node->value.rule.id);
+      }
       return;
     case SNT_STRING:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "%s\n", node->value.string);
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "%s\n", node->value.string);
+      }
       return;
   }
 }
@@ -290,10 +304,14 @@ static void sn_log_node_close(struct srgs_node *node)
     case SNT_META:
     case SNT_METADATA:
     case SNT_ANY:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "</%s>\n", node->name);
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "</%s>\n", node->name);
+      }
       return;
     case SNT_UNRESOLVED_REF:
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG1, "</ruleref (unresolved)>\n");
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "</ruleref (unresolved)>\n");
+      }
       return;
     case SNT_STRING:
       return;
@@ -426,12 +444,18 @@ static int process_tag(struct srgs_grammar *grammar, const char *name, char **at
       parent_def->children_tags.count(name) > 0) {
       return cur->tag_def->attribs_fn(grammar, atts);
     } else {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<%s> cannot be a child of <%s>\n", name, cur->parent->name);
+      if(globals.logging_callback) {
+        globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<%s> cannot be a child of <%s>\n", name, cur->parent->name);
+      }
     }
   } else if (cur->tag_def->is_root && cur->parent != NULL) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<%s> must be the root element\n", name);
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<%s> must be the root element\n", name);
+    }
   } else {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<%s> cannot be a root element\n", name);
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<%s> cannot be a root element\n", name);
+    }
   }
   return IKS_BADXML;
 }
@@ -471,7 +495,9 @@ static int process_cdata_bad(struct srgs_grammar *grammar, char *data, size_t le
   int i;
   for (i = 0; i < len; i++) {
     if (isgraph(data[i])) {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Unexpected CDATA for <%s>\n", grammar->cur->name);
+      if(globals.logging_callback) {
+        globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Unexpected CDATA for <%s>\n", grammar->cur->name);
+      }
       return IKS_BADXML;
     }
   }
@@ -504,12 +530,16 @@ static int process_rule(struct srgs_grammar *grammar, char **atts)
   }
 
   if (cspeech_zstr(rule->value.rule.id)) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Missing rule ID: %s\n", rule->value.rule.id);
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Missing rule ID: %s\n", rule->value.rule.id);
+    }
     return IKS_BADXML;
   }
 
-  if (grammar->rules.count[rule->value.rule.id] > 0)) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Duplicate rule ID: %s\n", rule->value.rule.id);
+  if (grammar->rules.count[rule->value.rule.id] > 0) {
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Duplicate rule ID: %s\n", rule->value.rule.id);
+    }
     return IKS_BADXML;
   }
   grammar->rules[rule->value.rule.id] = rule;
@@ -532,12 +562,16 @@ static int process_ruleref(struct srgs_grammar *grammar, char **atts)
       if (!strcmp("uri", atts[i])) {
         char *uri = atts[i + 1];
         if (cspeech_zstr(uri)) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Empty <ruleref> uri\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Empty <ruleref> uri\n");
+          }
           return IKS_BADXML;
         }
         /* only allow local reference */
         if (uri[0] != '#' || strlen(uri) < 2) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Only local rule refs allowed\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Only local rule refs allowed\n");
+          }
           return IKS_BADXML;
         }
         ruleref->value.ref.uri = switch_core_strdup(grammar->pool, uri);
@@ -568,14 +602,18 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
         /* repeats of 0 are not supported by this code */
         char *repeat = atts[i + 1];
         if (cspeech_zstr(repeat)) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Empty <item> repeat atribute\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Empty <item> repeat atribute\n");
+          }
           return IKS_BADXML;
         }
         if (switch_is_number(repeat)) {
           /* single number */
           int repeat_val = atoi(repeat);
           if (repeat_val < 1) {
-            switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<item> repeat must be >= 0\n");
+            if(globals.logging_callback) {
+              globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<item> repeat must be >= 0\n");
+            }
             return IKS_BADXML;
           }
           item->value.item.repeat_min = repeat_val;
@@ -588,7 +626,9 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
             *max = '\0';
             max++;
           } else {
-            switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<item> repeat must be a number or range\n");
+            if(globals.logging_callback) {
+              globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<item> repeat must be a number or range\n");
+            }
             return IKS_BADXML;
           }
           if (switch_is_number(min) && (switch_is_number(max) || cspeech_zstr(max))) {
@@ -597,20 +637,26 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
             /* max must be >= min and > 0
                min must be >= 0 */
             if ((max_val <= 0) || (max_val < min_val) || (min_val < 0)) {
-              switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<item> repeat range invalid\n");
+              if(globals.logging_callback) {
+                globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<item> repeat range invalid\n");
+              }
               return IKS_BADXML;
             }
             item->value.item.repeat_min = min_val;
             item->value.item.repeat_max = max_val;
           } else {
-            switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<item> repeat range is not a number\n");
+            if(globals.logging_callback) {
+              globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<item> repeat range is not a number\n");
+            }
             return IKS_BADXML;
           }
         }
       } else if (!strcmp("weight", atts[i])) {
         const char *weight = atts[i + 1];
         if (cspeech_zstr(weight) || !switch_is_number(weight) || atof(weight) < 0) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<item> weight is not a number >= 0\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<item> weight is not a number >= 0\n");
+          }
           return IKS_BADXML;
         }
         item->value.item.weight = switch_core_strdup(grammar->pool, weight);
@@ -630,7 +676,9 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
 static int process_grammar(struct srgs_grammar *grammar, char **atts)
 {
   if (grammar->root) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Only one <grammar> tag allowed\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Only one <grammar> tag allowed\n");
+    }
     return IKS_BADXML;
   }
   grammar->root = grammar->cur;
@@ -640,28 +688,36 @@ static int process_grammar(struct srgs_grammar *grammar, char **atts)
       if (!strcmp("mode", atts[i])) {
         char *mode = atts[i + 1];
         if (cspeech_zstr(mode)) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<grammar> mode is missing\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<grammar> mode is missing\n");
+          }
           return IKS_BADXML;
         }
         grammar->digit_mode = !strcasecmp(mode, "dtmf");
       } else if(!strcmp("encoding", atts[i])) {
         char *encoding = atts[i + 1];
         if (cspeech_zstr(encoding)) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<grammar> encoding is empty\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<grammar> encoding is empty\n");
+          }
           return IKS_BADXML;
         }
         grammar->encoding = switch_core_strdup(grammar->pool, encoding);
       } else if (!strcmp("language", atts[i])) {
         char *language = atts[i + 1];
         if (cspeech_zstr(language)) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<grammar> language is empty\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<grammar> language is empty\n");
+          }
           return IKS_BADXML;
         }
         grammar->language = switch_core_strdup(grammar->pool, language);
       } else if (!strcmp("root", atts[i])) {
         char *root = atts[i + 1];
         if (cspeech_zstr(root)) {
-          switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "<grammar> root is empty\n");
+          if(globals.logging_callback) {
+            globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<grammar> root is empty\n");
+          }
           return IKS_BADXML;
         }
         grammar->cur->value.root = switch_core_strdup(grammar->pool, root);
@@ -718,7 +774,9 @@ static int process_cdata_tag(struct srgs_grammar *grammar, char *data, size_t le
       grammar->tags[++grammar->tag_count] = tag;
       item->value.item.tag = grammar->tag_count;
     } else {
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "too many <tag>s\n");
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_WARNING, "too many <tag>s\n");
+      }
       return IKS_BADXML;
     }
   }
@@ -778,14 +836,18 @@ static int cdata_hook(void *user_data, char *data, size_t len)
 {
   struct srgs_grammar *grammar = (struct srgs_grammar *)user_data;
   if (!grammar) {
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Missing grammar\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(NULL, CSPEECH_LOG_INFO, "Missing grammar\n");
+    }
     return IKS_BADXML;
   }
   if (grammar->cur) {
     if (grammar->cur->tag_def) {
       return grammar->cur->tag_def->cdata_fn(grammar, data, len);
     }
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Missing definition for <%s>\n", grammar->cur->name);
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Missing definition for <%s>\n", grammar->cur->name);
+    }
     return IKS_BADXML;
   }
   return IKS_OK;
@@ -917,7 +979,9 @@ static int create_regexes(struct srgs_grammar *grammar, struct srgs_node *node, 
           grammar->regex = switch_core_strdup(grammar->pool, new_stream.data);
           switch_safe_free(new_stream.data);
         }
-        switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_DEBUG, "document regex = %s\n", grammar->regex);
+        if(globals.logging_callback) {
+          globals.logging_callback(grammar, CSPEECH_LOG_DEBUG, "document regex = %s\n", grammar->regex);
+        }
       }
       break;
     case SNT_RULE:
@@ -929,13 +993,17 @@ static int create_regexes(struct srgs_grammar *grammar, struct srgs_node *node, 
         SWITCH_STANDARD_STREAM(new_stream);
         for (; item; item = item->next) {
           if (!create_regexes(grammar, item, &new_stream)) {
-            switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_DEBUG, "%s regex failed = %s\n", node->value.rule.id, node->value.rule.regex);
+            if(globals.logging_callback) {
+              globals.logging_callback(grammar, CSPEECH_LOG_DEBUG, "%s regex failed = %s\n", node->value.rule.id, node->value.rule.regex);
+            }
             switch_safe_free(new_stream.data);
             return 0;
           }
         }
         node->value.rule.regex = switch_core_strdup(grammar->pool, new_stream.data);
-        switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_DEBUG, "%s regex = %s\n", node->value.rule.id, node->value.rule.regex);
+        if(globals.logging_callback) {
+          globals.logging_callback(grammar, CSPEECH_LOG_DEBUG, "%s regex = %s\n", node->value.rule.id, node->value.rule.regex);
+        }
         switch_safe_free(new_stream.data);
       }
       break;
@@ -1027,7 +1095,9 @@ static int create_regexes(struct srgs_grammar *grammar, struct srgs_node *node, 
     case SNT_REF: {
       struct srgs_node *rule = node->value.ref.node;
       if (!rule->value.rule.regex) {
-        switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_DEBUG, "ruleref: create %s regex\n", rule->value.rule.id);
+        if(globals.logging_callback) {
+          globals.logging_callback(grammar, CSPEECH_LOG_DEBUG, "ruleref: create %s regex\n", rule->value.rule.id);
+        }
         if (!create_regexes(grammar, rule, NULL)) {
           return 0;
         }
@@ -1058,14 +1128,18 @@ static pcre *get_compiled_regex(struct srgs_grammar *grammar)
   const char *regex;
 
   if (!grammar) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_CRIT, "grammar is NULL!\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_CRIT, "grammar is NULL!\n");
+    }
     return NULL;
   }
 
   switch_mutex_lock(grammar->mutex);
   if (!grammar->compiled_regex && (regex = srgs_grammar_to_regex(grammar))) {
     if (!(grammar->compiled_regex = pcre_compile(regex, options, &errptr, &erroffset, NULL))) {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_WARNING, "Failed to compile grammar regex: %s\n", regex);
+      if(globals.logging_callback) {
+        globals.logging_callback(grammar, CSPEECH_LOG_WARNING, "Failed to compile grammar regex: %s\n", regex);
+      }
     }
   }
   switch_mutex_unlock(grammar->mutex);
@@ -1082,20 +1156,26 @@ static int resolve_refs(struct srgs_grammar *grammar, struct srgs_node *node, in
 {
   sn_log_node_open(node);
   if (node->visited) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Loop detected.\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Loop detected.\n");
+    }
     return 0;
   }
   node->visited = 1;
 
   if (level > MAX_RECURSION) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Recursion too deep.\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Recursion too deep.\n");
+    }
     return 0;
   }
 
   if (node->type == SNT_GRAMMAR && node->value.root) {
     struct srgs_node *rule = (struct srgs_node *)grammar->rules[node->value.root];
     if (!rule) {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Root rule not found: %s\n", node->value.root);
+      if(globals.logging_callback) {
+        globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Root rule not found: %s\n", node->value.root);
+      }
       return 0;
     }
     grammar->root_rule = rule;
@@ -1105,7 +1185,9 @@ static int resolve_refs(struct srgs_grammar *grammar, struct srgs_node *node, in
     /* resolve reference to local rule- drop first character # from URI */
     struct srgs_node *rule = (struct srgs_node *)grammar->rules[node->value.ref.uri + 1];
     if (!rule) {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_INFO, "Local rule not found: %s\n", node->value.ref.uri);
+      if(globals.logging_callback) {
+        globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Local rule not found: %s\n", node->value.ref.uri);
+      }
       return 0;
     }
 
@@ -1146,12 +1228,16 @@ struct srgs_grammar *srgs_parse(struct srgs_parser *parser, const char *document
 {
   struct srgs_grammar *grammar = NULL;
   if (!parser) {
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "NULL parser!!\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(NULL, CSPEECH_LOG_CRIT, "NULL parser!!\n");
+    }
     return NULL;
   }
 
   if (cspeech_zstr(document)) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "Missing grammar document\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_INFO, "Missing grammar document\n");
+    }
     return NULL;
   }
 
@@ -1161,17 +1247,23 @@ struct srgs_grammar *srgs_parse(struct srgs_parser *parser, const char *document
   if (!grammar) {
     int result = 0;
     iksparser *p;
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_DEBUG, "Parsing new grammar\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_DEBUG, "Parsing new grammar\n");
+    }
     grammar = srgs_grammar_new(parser);
     p = iks_sax_new(grammar, tag_hook, cdata_hook);
     if (iks_parse(p, document, 0, 1) == IKS_OK) {
       if (grammar->root) {
-        switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_DEBUG, "Resolving references\n");
+        if(globals.logging_callback) {
+          globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_DEBUG, "Resolving references\n");
+        }
         if (resolve_refs(grammar, grammar->root, 0)) {
           result = 1;
         }
       } else {
-        switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "Nothing to parse!\n");
+        if(globals.logging_callback) {
+          globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_INFO, "Nothing to parse!\n");
+        }
       }
     }
     iks_parser_delete(p);
@@ -1182,10 +1274,14 @@ struct srgs_grammar *srgs_parse(struct srgs_parser *parser, const char *document
         srgs_grammar_destroy(grammar);
         grammar = NULL;
       }
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "Failed to parse grammar\n");
+      if(globals.logging_callback) {
+        globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_INFO, "Failed to parse grammar\n");
+      }
     }
   } else {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_DEBUG, "Using cached grammar\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_DEBUG, "Using cached grammar\n");
+    }
   }
   switch_mutex_unlock(parser->mutex);
 
@@ -1224,11 +1320,15 @@ static int is_match_end(pcre *compiled_regex, const char *input)
     result = pcre_exec(compiled_regex, NULL, search_input, input_size + 1, 0, 0,
       ovector, sizeof(ovector) / sizeof(ovector[0]));
     if (result > 0) {
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "not match end\n");
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "not match end\n");
+      }
       return 0;
     }
   }
-  switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "is match end\n");
+  if(globals.logging_callback) {
+    globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "is match end\n");
+  }
   return 1;
 }
 
@@ -1251,7 +1351,9 @@ enum srgs_match_type srgs_grammar_match(struct srgs_grammar *grammar, const char
     return SMT_NO_MATCH;
   }
   if (strlen(input) > MAX_INPUT_SIZE) {
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "input too large: %s\n", input);
+    if(globals.logging_callback) {
+      globals.logging_callback(NULL, CSPEECH_LOG_WARNING, "input too large: %s\n", input);
+    }
     return SMT_NO_MATCH;
   }
 
@@ -1261,7 +1363,9 @@ enum srgs_match_type srgs_grammar_match(struct srgs_grammar *grammar, const char
   result = pcre_exec(compiled_regex, NULL, input, strlen(input), 0, PCRE_PARTIAL,
     ovector, OVECTOR_SIZE);
 
-  switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "match = %i\n", result);
+  if(globals.logging_callback) {
+    globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "match = %i\n", result);
+  }
   if (result > 0) {
     int i;
     char buffer[MAX_INPUT_SIZE + 1];
@@ -1298,7 +1402,9 @@ enum srgs_match_type srgs_grammar_match(struct srgs_grammar *grammar, const char
 const char *srgs_grammar_to_regex(struct srgs_grammar *grammar)
 {
   if (!grammar) {
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "grammar is NULL!\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(NULL, CSPEECH_LOG_INFO, "grammar is NULL!\n");
+    }
     return NULL;
   }
   switch_mutex_lock(grammar->mutex);
@@ -1393,7 +1499,9 @@ static int create_jsgf(struct srgs_grammar *grammar, struct srgs_node *node, swi
         }
         grammar->jsgf = switch_core_strdup(grammar->pool, new_stream.data);
         switch_safe_free(new_stream.data);
-        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "document jsgf = %s\n", grammar->jsgf);
+        if(globals.logging_callback) {
+          globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "document jsgf = %s\n", grammar->jsgf);
+        }
       }
       break;
     case SNT_RULE:
@@ -1402,7 +1510,9 @@ static int create_jsgf(struct srgs_grammar *grammar, struct srgs_node *node, swi
         stream->write_function(stream, "<%s> =", node->value.rule.id);
         for (; item; item = item->next) {
           if (!create_jsgf(grammar, item, stream)) {
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "%s jsgf rule failed\n", node->value.rule.id);
+            if(globals.logging_callback) {
+              globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "%s jsgf rule failed\n", node->value.rule.id);
+            }
             return 0;
           }
         }
@@ -1531,7 +1641,9 @@ static int create_jsgf(struct srgs_grammar *grammar, struct srgs_node *node, swi
 const char *srgs_grammar_to_jsgf(struct srgs_grammar *grammar)
 {
   if (!grammar) {
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "grammar is NULL!\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(NULL, CSPEECH_LOG_CRIT, "grammar is NULL!\n");
+    }
     return NULL;
   }
   switch_mutex_lock(grammar->mutex);
@@ -1553,7 +1665,9 @@ const char *srgs_grammar_to_jsgf(struct srgs_grammar *grammar)
 const char *srgs_grammar_to_jsgf_file(struct srgs_grammar *grammar, const char *basedir, const char *ext)
 {
   if (!grammar) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(grammar->uuid), SWITCH_LOG_CRIT, "grammar is NULL!\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(grammar, CSPEECH_LOG_CRIT, "grammar is NULL!\n");
+    }
     return NULL;
   }
   switch_mutex_lock(grammar->mutex);
@@ -1571,7 +1685,9 @@ const char *srgs_grammar_to_jsgf_file(struct srgs_grammar *grammar, const char *
 
     /* write grammar to file */
     if (switch_file_open(&file, grammar->jsgf_file_name, SWITCH_FOPEN_WRITE | SWITCH_FOPEN_TRUNCATE | SWITCH_FOPEN_CREATE, SWITCH_FPROT_OS_DEFAULT, grammar->pool) != SWITCH_STATUS_SUCCESS) {
-      switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Failed to create jsgf file: %s!\n", grammar->jsgf_file_name);
+      if(globals.logging_callback) {
+        globals.logging_callback(NULL, CSPEECH_LOG_WARNING, "Failed to create jsgf file: %s!\n", grammar->jsgf_file_name);
+      }
       grammar->jsgf_file_name = NULL;
       switch_mutex_unlock(grammar->mutex);
       return NULL;
@@ -1594,6 +1710,7 @@ int srgs_init(void)
   }
 
   globals.init = true;
+  globals.logging_callback = NULL;
   switch_core_new_memory_pool(&globals.pool);
 
   add_root_tag_def("grammar", process_grammar, process_cdata_bad, "meta,metadata,lexicon,tag,rule");

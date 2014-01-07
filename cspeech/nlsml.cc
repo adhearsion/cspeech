@@ -22,16 +22,6 @@
 
 struct nlsml_parser;
 
-typedef enum {
-  CSPEECH_LOG_DEBUG = 7,
-  CSPEECH_LOG_INFO = 6,
-  CSPEECH_LOG_NOTICE = 5,
-  CSPEECH_LOG_WARNING = 4,
-  CSPEECH_LOG_ERROR = 3,
-  CSPEECH_LOG_CRIT = 2,
-  CSPEECH_LOG_ALERT = 1,
-} cspeech_log_level_t;
-
 /** function to handle tag attributes */
 typedef int (* tag_attribs_fn)(struct nlsml_parser *, char **);
 /** function to handle tag CDATA */
