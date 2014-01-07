@@ -4,12 +4,7 @@ compiler:
   - clang
 before_install:
   - sudo apt-get install libpcre3 libpcre3-dev
-  - wget https://iksemel.googlecode.com/files/iksemel-1.4.tar.gz
-  - tar -xf iksemel-1.4.tar.gz
-  - cd iksemel-1.4
-  - ./configure
-  - make
-  - sudo make install
+  - "(wget https://iksemel.googlecode.com/files/iksemel-1.4.tar.gz && tar -xf iksemel-1.4.tar.gz && cd iksemel-1.4 && ./configure && make && sudo make install)"
 script: "./autogen.sh && make && make check"
 notifications:
   irc:
