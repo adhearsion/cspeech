@@ -54,8 +54,6 @@ static struct {
   bool init;
   /** Mapping of tag name to definition */
   std::map<const char *,struct tag_def *> tag_defs;
-  /** library memory pool */
-  switch_memory_pool_t *pool;
   /** Callback for logging messages **/
   int (*logging_callback)(void *context, cspeech_log_level_t log_level, const char *log_message, ...);
 } globals;
@@ -98,7 +96,7 @@ struct nlsml_parser {
  */
 static struct tag_def *add_tag_def(const char *tag, tag_attribs_fn attribs_fn, tag_cdata_fn cdata_fn, const char *children_tags)
 {
-  struct tag_def *def = switch_core_alloc(globals.pool, sizeof(*def));
+  struct tag_def *def;
   if (!cspeech_zstr(children_tags)) {
     std::string tags_string(children_tags);
     std::stringstream ss(tags_string);
@@ -261,7 +259,7 @@ static int tag_hook(void *user_data, char *name, char **atts, int type)
   struct nlsml_parser *parser = (struct nlsml_parser *)user_data;
 
   if (type == IKS_OPEN || type == IKS_SINGLE) {
-    struct nlsml_node *child_node = malloc(sizeof(*child_node));
+    struct nlsml_node *child_node;
     child_node->name = name;
     child_node->tag_def = globals.tag_defs[name];
     if (!child_node->tag_def) {
@@ -471,7 +469,6 @@ int nlsml_init(void)
 
   globals.init = true;
   globals.logging_callback = NULL;
-  switch_core_new_memory_pool(&globals.pool);
 
   add_root_tag_def("result", process_attribs_ignore, process_cdata_ignore, "interpretation");
   add_tag_def("interpretation", process_attribs_ignore, process_cdata_ignore, "input,model,xf:model,instance,xf:instance");
