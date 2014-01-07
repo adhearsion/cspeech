@@ -40,3 +40,6 @@
 /config.*
 /configure
 test-driver
+
+# CTags stuff
+.tags*
