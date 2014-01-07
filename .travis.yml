@@ -1,0 +1,9 @@
+language: cpp
+compiler:
+  - gcc
+  - clang
+script: "./autogen.sh && make && make check"
+notifications:
+  irc:
+    channels:
+      - "chat.freenode.net#adhearsion"
