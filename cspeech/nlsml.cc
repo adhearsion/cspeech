@@ -13,6 +13,7 @@
 
 #include <iksemel.h>
 #include <map>
+#include <stdlib.h>
 
 #include "nlsml.h"
 
