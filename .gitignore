@@ -16,3 +16,25 @@
 *.exe
 *.out
 *.app
+
+# Autotools stuff
+/INSTALL
+/Makefile
+/Makefile.in
+/aclocal.m4
+/autom4te.cache/
+/config*
+/depcomp
+/cspeech-*.pc
+/cspeech-*.tar.*
+/cspeechconfig.h
+/install-sh
+/libtool
+/ltmain.sh
+/missing
+/stamp-h?
+.deps/
+.dirstamp
+.libs/
+*.l[ao]
+/compile
