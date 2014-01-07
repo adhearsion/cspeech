@@ -14,6 +14,7 @@
 #include <iksemel.h>
 #include <map>
 #include <stdlib.h>
+#include <sstream>
 
 #include "cspeech.h"
 #include "nlsml.h"
@@ -99,14 +100,11 @@ static struct tag_def *add_tag_def(const char *tag, tag_attribs_fn attribs_fn, t
 {
   struct tag_def *def = switch_core_alloc(globals.pool, sizeof(*def));
   if (!cspeech_zstr(children_tags)) {
-    char *children_tags_dup = switch_core_strdup(globals.pool, children_tags);
-    char *tags[32] = { 0 };
-    int tag_count = switch_separate_string(children_tags_dup, ',', tags, sizeof(tags) / sizeof(tags[0]));
-    if (tag_count) {
-      int i;
-      for (i = 0; i < tag_count; i++) {
-        def->children_tags[tags[i]] = tags[i];
-      }
+    std::string tags_string(children_tags);
+    std::stringstream ss(tags_string);
+    std::string item;
+    while (std::getline(ss, item, ',')) {
+      def->children_tags[item.c_str()] = item.c_str();
     }
   }
   def->attribs_fn = attribs_fn;
@@ -431,7 +429,8 @@ iks *nlsml_create_dtmf_match(const char *digits, const char *interpretation)
     int first = 1;
     int i;
     int num_digits = strlen(digits);
-    switch_stream_handle_t stream = { 0 };
+    std::stringstream stream;
+    const char *utterance;
 
     iks *interpretation_node = iks_insert(result, "interpretation");
     iks *input_node = iks_insert(interpretation_node, "input");
@@ -439,25 +438,24 @@ iks *nlsml_create_dtmf_match(const char *digits, const char *interpretation)
     iks_insert_attrib(input_node, "mode", "dtmf");
     iks_insert_attrib(input_node, "confidence", "100");
 
-    SWITCH_STANDARD_STREAM(stream);
     for (i = 0; i < num_digits; i++) {
       if (isdtmf(digits[i])) {
         if (first) {
-          stream.write_function(&stream, "%c", digits[i]);
+          stream << digits[i];
           first = 0;
         } else {
-          stream.write_function(&stream, " %c", digits[i]);
+          stream << " " << digits[i];
         }
       }
     }
-    iks_insert_cdata(input_node, stream.data, strlen(stream.data));
+    utterance = stream.str().c_str();
+    iks_insert_cdata(input_node, utterance, strlen(utterance));
 
     if (cspeech_zstr(interpretation)) {
-      iks_insert_cdata(instance_node, stream.data, strlen(stream.data));
+      iks_insert_cdata(instance_node, utterance, strlen(utterance));
     } else {
       iks_insert_cdata(instance_node, interpretation, strlen(interpretation));
     }
-    switch_safe_free(stream.data);
   }
   return result;
 }
