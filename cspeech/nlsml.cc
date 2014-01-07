@@ -12,6 +12,7 @@
  */
 
 #include <iksemel.h>
+#include <map>
 
 #include "nlsml.h"
 
@@ -29,7 +30,7 @@ struct tag_def {
   tag_attribs_fn attribs_fn;
   tag_cdata_fn cdata_fn;
   bool is_root;
-  switch_hash_t *children_tags;
+  std::map<const char *,const char *> children_tags;
 };
 
 /**
@@ -39,7 +40,7 @@ static struct {
   /** true if initialized */
   bool init;
   /** Mapping of tag name to definition */
-  switch_hash_t *tag_defs;
+  std::map<const char *,struct tag_def *> tag_defs;
   /** library memory pool */
   switch_memory_pool_t *pool;
 } globals;
@@ -83,7 +84,6 @@ struct nlsml_parser {
 static struct tag_def *add_tag_def(const char *tag, tag_attribs_fn attribs_fn, tag_cdata_fn cdata_fn, const char *children_tags)
 {
   struct tag_def *def = switch_core_alloc(globals.pool, sizeof(*def));
-  switch_core_hash_init(&def->children_tags, globals.pool);
   if (!zstr(children_tags)) {
     char *children_tags_dup = switch_core_strdup(globals.pool, children_tags);
     char *tags[32] = { 0 };
@@ -91,14 +91,14 @@ static struct tag_def *add_tag_def(const char *tag, tag_attribs_fn attribs_fn, t
     if (tag_count) {
       int i;
       for (i = 0; i < tag_count; i++) {
-        switch_core_hash_insert(def->children_tags, tags[i], tags[i]);
+        def->children_tags[tags[i]] = tags[i];
       }
     }
   }
   def->attribs_fn = attribs_fn;
   def->cdata_fn = cdata_fn;
   def->is_root = false;
-  switch_core_hash_insert(globals.tag_defs, tag, def);
+  globals.tag_defs[tag] = def;
   return def;
 }
 
@@ -133,8 +133,8 @@ static int process_tag(struct nlsml_parser *parser, const char *name, char **att
   } else if (!cur->tag_def->is_root && cur->parent) {
     /* check if this child is allowed by parent node */
     struct tag_def *parent_def = cur->parent->tag_def;
-    if (switch_core_hash_find(parent_def->children_tags, "ANY") ||
-      switch_core_hash_find(parent_def->children_tags, name)) {
+    if (parent_def->children_tags.count("ANY") > 0 ||
+      parent_def->children_tags.count(name) > 0) {
       return cur->tag_def->attribs_fn(parser, atts);
     } else {
       switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "<%s> cannot be a child of <%s>\n", name, cur->parent->name);
@@ -243,9 +243,9 @@ static int tag_hook(void *user_data, char *name, char **atts, int type)
   if (type == IKS_OPEN || type == IKS_SINGLE) {
     struct nlsml_node *child_node = malloc(sizeof(*child_node));
     child_node->name = name;
-    child_node->tag_def = switch_core_hash_find(globals.tag_defs, name);
+    child_node->tag_def = globals.tag_defs[name];
     if (!child_node->tag_def) {
-      child_node->tag_def = switch_core_hash_find(globals.tag_defs, "ANY");
+      child_node->tag_def = globals.tag_defs["ANY"];
     }
     child_node->parent = parser->cur;
     parser->cur = child_node;
@@ -435,7 +435,6 @@ int nlsml_init(void)
 
   globals.init = true;
   switch_core_new_memory_pool(&globals.pool);
-  switch_core_hash_init(&globals.tag_defs, globals.pool);
 
   add_root_tag_def("result", process_attribs_ignore, process_cdata_ignore, "interpretation");
   add_tag_def("interpretation", process_attribs_ignore, process_cdata_ignore, "input,model,xf:model,instance,xf:instance");
