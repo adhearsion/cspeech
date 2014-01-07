@@ -23,7 +23,6 @@
 /Makefile.in
 /aclocal.m4
 /autom4te.cache/
-/config*
 /depcomp
 /cspeech-*.pc
 /cspeech-*.tar.*
