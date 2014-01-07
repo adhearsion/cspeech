@@ -1,5 +1,5 @@
 #include "test.h"
-#include "nlsml.h"
+#include "cspeech/nlsml.h"
 
 static const char *nlsml_good =
   "<result x-model=\"http://theYesNoModel\""
@@ -306,10 +306,9 @@ static void test_normalize(void)
 /**
  * main program
  */
-int main(int argc, char **argv)
+int test_nlsml()
 {
   const char *err;
-  TEST_INIT
   nlsml_init();
   TEST(test_parse_nlsml_examples);
   TEST(test_create_dtmf_match);

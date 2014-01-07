@@ -14,6 +14,10 @@
 #ifndef TEST_H
 #define TEST_H
 
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 #define assert_equals(test, expected_str, expected, actual, file, line) \
 { \
   int actual_val = actual; \
@@ -68,8 +72,6 @@
 #define TEST(name) printf("TEST BEGIN\t" #name "\n"); name(); printf("TEST END\t"#name "\tPASS\n");
 
 #define SKIP_TEST(name) if (0) { TEST(name) };
-
-#define TEST_INIT switch_core_init(0, SWITCH_TRUE, &err);
 
 #endif
 

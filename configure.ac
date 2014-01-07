@@ -23,5 +23,6 @@ AC_SUBST([CSPEECH_API_VERSION], [1.0])
 # Override the template file name of the generated .pc file, so that there
 # is no need to rename the template file when the API version changes.
 AC_CONFIG_FILES([Makefile
+                 test/Makefile
                  cspeech-${CSPEECH_API_VERSION}.pc:cspeech.pc.in])
 AC_OUTPUT

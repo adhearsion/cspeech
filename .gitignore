@@ -39,3 +39,4 @@
 /compile
 /config.*
 /configure
+test-driver

@@ -1,5 +1,5 @@
 #include "test.h"
-#include "srgs.h"
+#include "cspeech/srgs.h"
 
 static const char *adhearsion_menu_grammar =
   "<grammar xmlns=\"http://www.w3.org/2001/06/grammar\" version=\"1.0\" xml:lang=\"en-US\" mode=\"dtmf\" root=\"options\" tag-format=\"semantics/1.0-literals\">"
@@ -1074,10 +1074,9 @@ static void test_metadata_grammar(void)
 /**
  * main program
  */
-int main(int argc, char **argv)
+int test_srgs()
 {
   const char *err;
-  TEST_INIT
   srgs_init();
   TEST(test_parse_grammar);
   TEST(test_match_adhearsion_menu_grammar);
