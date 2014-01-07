@@ -96,7 +96,7 @@ struct nlsml_parser {
  */
 static struct tag_def *add_tag_def(const char *tag, tag_attribs_fn attribs_fn, tag_cdata_fn cdata_fn, const char *children_tags)
 {
-  struct tag_def *def;
+  struct tag_def *def = (struct tag_def *) malloc(sizeof(tag_def));
   if (!cspeech_zstr(children_tags)) {
     std::string tags_string(children_tags);
     std::stringstream ss(tags_string);
@@ -259,7 +259,7 @@ static int tag_hook(void *user_data, char *name, char **atts, int type)
   struct nlsml_parser *parser = (struct nlsml_parser *)user_data;
 
   if (type == IKS_OPEN || type == IKS_SINGLE) {
-    struct nlsml_node *child_node;
+    struct nlsml_node *child_node = (struct nlsml_node *) malloc(sizeof(*child_node));
     child_node->name = name;
     child_node->tag_def = globals.tag_defs[name];
     if (!child_node->tag_def) {
