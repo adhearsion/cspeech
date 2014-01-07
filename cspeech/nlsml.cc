@@ -14,6 +14,7 @@
 #include <iksemel.h>
 #include <map>
 #include <stdlib.h>
+#include <string.h>
 #include <sstream>
 
 #include "cspeech.h"

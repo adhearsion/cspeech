@@ -14,6 +14,7 @@
 #include <iksemel.h>
 #include <pcre.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "srgs.h"
 
