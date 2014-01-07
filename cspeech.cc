@@ -7,16 +7,11 @@
  * Contributor(s):
  * Chris Rienzo <chris.rienzo@grasshopper.com>
  *
- * cspeech.h
+ * cspeech.cc
  *
  */
 
-#ifndef CSPEECH_H_
-#define CSPEECH_H_
-
-static inline int cspeech_zstr(const char *s);
-
-#include <cspeech/srgs.h>
-#include <cspeech/nlsml.h>
-
-#endif // CSPEECH_H_
+static inline int cspeech_zstr(const char *s)
+{
+  return !s || *s == '\0';
+}

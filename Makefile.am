@@ -26,7 +26,8 @@ lib_LTLIBRARIES = libcspeech-@CSPEECH_API_VERSION@.la
 ## rules which invoke the C++ compiler to produce a libtool object file (.lo)
 ## from each source file.  Note that it is not necessary to list header files
 ## which are already listed elsewhere in a _HEADERS variable assignment.
-libcspeech_@CSPEECH_API_VERSION@_la_SOURCES = cspeech/nlsml.cc \
+libcspeech_@CSPEECH_API_VERSION@_la_SOURCES = cspeech.cc \
+                                              cspeech/nlsml.cc \
                                               cspeech/srgs.cc
 
 ## Instruct libtool to include ABI version information in the generated shared

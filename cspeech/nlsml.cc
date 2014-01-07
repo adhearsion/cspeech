@@ -15,6 +15,7 @@
 #include <map>
 #include <stdlib.h>
 
+#include "cspeech.h"
 #include "nlsml.h"
 
 struct nlsml_parser;
@@ -97,7 +98,7 @@ struct nlsml_parser {
 static struct tag_def *add_tag_def(const char *tag, tag_attribs_fn attribs_fn, tag_cdata_fn cdata_fn, const char *children_tags)
 {
   struct tag_def *def = switch_core_alloc(globals.pool, sizeof(*def));
-  if (!zstr(children_tags)) {
+  if (!cspeech_zstr(children_tags)) {
     char *children_tags_dup = switch_core_strdup(globals.pool, children_tags);
     char *tags[32] = { 0 };
     int tag_count = switch_separate_string(children_tags_dup, ',', tags, sizeof(tags) / sizeof(tags[0]));
@@ -327,7 +328,7 @@ enum nlsml_match_type nlsml_parse(const char *result, const char *uuid)
 {
   struct nlsml_parser parser = { 0 };
   parser.uuid = uuid;
-  if (!zstr(result)) {
+  if (!cspeech_zstr(result)) {
     iksparser *p = iks_sax_new(&parser, tag_hook, cdata_hook);
     if (iks_parse(p, result, 0, 1) == IKS_OK) {
       /* check result */
@@ -426,7 +427,7 @@ iks *nlsml_create_dtmf_match(const char *digits, const char *interpretation)
   iks *result = iks_new("result");
   iks_insert_attrib(result, "xmlns", NLSML_NS);
   iks_insert_attrib(result, "xmlns:xf", "http://www.w3.org/2000/xforms");
-  if (!zstr(digits)) {
+  if (!cspeech_zstr(digits)) {
     int first = 1;
     int i;
     int num_digits = strlen(digits);
@@ -451,7 +452,7 @@ iks *nlsml_create_dtmf_match(const char *digits, const char *interpretation)
     }
     iks_insert_cdata(input_node, stream.data, strlen(stream.data));
 
-    if (zstr(interpretation)) {
+    if (cspeech_zstr(interpretation)) {
       iks_insert_cdata(instance_node, stream.data, strlen(stream.data));
     } else {
       iks_insert_cdata(instance_node, interpretation, strlen(interpretation));
