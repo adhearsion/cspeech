@@ -18,6 +18,16 @@
 
 struct nlsml_parser;
 
+typedef enum {
+  CSPEECH_LOG_DEBUG = 7,
+  CSPEECH_LOG_INFO = 6,
+  CSPEECH_LOG_NOTICE = 5,
+  CSPEECH_LOG_WARNING = 4,
+  CSPEECH_LOG_ERROR = 3,
+  CSPEECH_LOG_CRIT = 2,
+  CSPEECH_LOG_ALERT = 1,
+} cspeech_log_level_t;
+
 /** function to handle tag attributes */
 typedef int (* tag_attribs_fn)(struct nlsml_parser *, char **);
 /** function to handle tag CDATA */
@@ -43,6 +53,8 @@ static struct {
   std::map<const char *,struct tag_def *> tag_defs;
   /** library memory pool */
   switch_memory_pool_t *pool;
+  /** Callback for logging messages **/
+  int (*logging_callback)(void *context, cspeech_log_level_t log_level, const char *log_message, ...);
 } globals;
 
 /**
@@ -137,12 +149,18 @@ static int process_tag(struct nlsml_parser *parser, const char *name, char **att
       parent_def->children_tags.count(name) > 0) {
       return cur->tag_def->attribs_fn(parser, atts);
     } else {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "<%s> cannot be a child of <%s>\n", name, cur->parent->name);
+      if(globals.logging_callback) {
+        globals.logging_callback(&parser, CSPEECH_LOG_INFO, "<%s> cannot be a child of <%s>\n", name, cur->parent->name);
+      }
     }
   } else if (cur->tag_def->is_root && cur->parent != NULL) {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "<%s> must be the root element\n", name);
+    if(globals.logging_callback) {
+      globals.logging_callback(&parser, CSPEECH_LOG_INFO, "<%s> must be the root element\n", name);
+    }
   } else {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "<%s> cannot be a root element\n", name);
+    if(globals.logging_callback) {
+      globals.logging_callback(&parser, CSPEECH_LOG_INFO, "<%s> cannot be a root element\n", name);
+    }
   }
   return IKS_BADXML;
 }
@@ -182,7 +200,9 @@ static int process_cdata_bad(struct nlsml_parser *parser, char *data, size_t len
   int i;
   for (i = 0; i < len; i++) {
     if (isgraph(data[i])) {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "Unexpected CDATA for <%s>\n", parser->cur->name);
+      if(globals.logging_callback) {
+        globals.logging_callback(&parser, CSPEECH_LOG_INFO, "Unexpected CDATA for <%s>\n", parser->cur->name);
+      }
       return IKS_BADXML;
     }
   }
@@ -249,7 +269,9 @@ static int tag_hook(void *user_data, char *name, char **atts, int type)
     }
     child_node->parent = parser->cur;
     parser->cur = child_node;
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_DEBUG1, "<%s>\n", name);
+    if(globals.logging_callback) {
+      globals.logging_callback(&parser, CSPEECH_LOG_DEBUG, "<%s>\n", name);
+    }
     result = process_tag(parser, name, atts);
   }
 
@@ -257,7 +279,9 @@ static int tag_hook(void *user_data, char *name, char **atts, int type)
     struct nlsml_node *node = parser->cur;
     parser->cur = node->parent;
     free(node);
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_DEBUG1, "</%s>\n", name);
+    if(globals.logging_callback) {
+      globals.logging_callback(&parser, CSPEECH_LOG_DEBUG, "</%s>\n", name);
+    }
   }
 
   return result;
@@ -274,7 +298,9 @@ static int cdata_hook(void *user_data, char *data, size_t len)
 {
   struct nlsml_parser *parser = (struct nlsml_parser *)user_data;
   if (!parser) {
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Missing parser\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(NULL, CSPEECH_LOG_INFO, "Missing parser\n");
+    }
     return IKS_BADXML;
   }
   if (parser->cur) {
@@ -282,7 +308,9 @@ static int cdata_hook(void *user_data, char *data, size_t len)
     if (def) {
       return def->cdata_fn(parser, data, len);
     }
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser->uuid), SWITCH_LOG_INFO, "Missing definition for <%s>\n", parser->cur->name);
+    if(globals.logging_callback) {
+      globals.logging_callback(&parser, CSPEECH_LOG_INFO, "Missing definition for <%s>\n", parser->cur->name);
+    }
     return IKS_BADXML;
   }
   return IKS_OK;
@@ -311,13 +339,19 @@ enum nlsml_match_type nlsml_parse(const char *result, const char *uuid)
       if (parser.noinput) {
         return NMT_NOINPUT;
       }
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser.uuid), SWITCH_LOG_INFO, "NLSML result does not have match/noinput/nomatch!\n");
+      if(globals.logging_callback) {
+        globals.logging_callback(&parser, CSPEECH_LOG_INFO, "NLSML result does not have match/noinput/nomatch!\n");
+      }
     } else {
-      switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser.uuid), SWITCH_LOG_INFO, "Failed to parse NLSML!\n");
+      if(globals.logging_callback) {
+        globals.logging_callback(&parser, CSPEECH_LOG_INFO, "Failed to parse NLSML!\n");
+      }
     }
     iks_parser_delete(p);
   } else {
-    switch_log_printf(SWITCH_CHANNEL_UUID_LOG(parser.uuid), SWITCH_LOG_INFO, "Missing NLSML result\n");
+    if(globals.logging_callback) {
+      globals.logging_callback(&parser, CSPEECH_LOG_INFO, "Missing NLSML result\n");
+    }
   }
   return NMT_BAD_XML;
 }
@@ -338,7 +372,9 @@ iks *nlsml_normalize(const char *result)
     iks_insert_attrib(result_xml, "xmlns", NLSML_NS);
   } else {
     /* unexpected ... */
-    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Failed to normalize NLSML result: %s\n", result);
+    if(globals.logging_callback) {
+      globals.logging_callback(NULL, CSPEECH_LOG_INFO, "Failed to normalize NLSML result: %s\n", result);
+    }
     if (result_xml) {
       iks_delete(result_xml);
     }
@@ -434,6 +470,7 @@ int nlsml_init(void)
   }
 
   globals.init = true;
+  globals.logging_callback = NULL;
   switch_core_new_memory_pool(&globals.pool);
 
   add_root_tag_def("result", process_attribs_ignore, process_cdata_ignore, "interpretation");
