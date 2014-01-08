@@ -320,7 +320,6 @@ static void sn_log_node_close(struct srgs_node *node)
 
 /**
  * Create a new node
- * @param pool to use
  * @param name of node
  * @param type of node
  * @return the node
@@ -328,9 +327,7 @@ static void sn_log_node_close(struct srgs_node *node)
 static struct srgs_node *sn_new(const char *name, enum srgs_node_type type)
 {
   struct srgs_node *node = (struct srgs_node *) malloc(sizeof(srgs_node));
-  char name_copy[strlen(name)];
-  std::strcpy(name_copy, name);
-  node->name = name_copy;
+  node->name = strdup(name);
   node->type = type;
   return node;
 }
@@ -524,7 +521,7 @@ static int process_rule(struct srgs_grammar *grammar, char **atts)
         rule->value.rule.is_public = !cspeech_zstr(atts[i + 1]) && !strcmp("public", atts[i + 1]);
       } else if (!strcmp("id", atts[i])) {
         if (!cspeech_zstr(atts[i + 1])) {
-          rule->value.rule.id = switch_core_strdup(grammar->pool, atts[i + 1]);
+          rule->value.rule.id = strdup(atts[i + 1]);
         }
       }
       i += 2;
@@ -576,7 +573,7 @@ static int process_ruleref(struct srgs_grammar *grammar, char **atts)
           }
           return IKS_BADXML;
         }
-        ruleref->value.ref.uri = switch_core_strdup(grammar->pool, uri);
+        ruleref->value.ref.uri = strdup(uri);
         return IKS_OK;
       }
       i += 2;
@@ -622,7 +619,7 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
           item->value.item.repeat_max = repeat_val;
         } else {
           /* range */
-          char *min = switch_core_strdup(grammar->pool, repeat);
+          char *min = strdup(repeat);
           char *max = strchr(min, '-');
           if (max) {
             *max = '\0';
@@ -661,7 +658,7 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
           }
           return IKS_BADXML;
         }
-        item->value.item.weight = switch_core_strdup(grammar->pool, weight);
+        item->value.item.weight = strdup(weight);
       }
       i += 2;
     }
@@ -704,7 +701,7 @@ static int process_grammar(struct srgs_grammar *grammar, char **atts)
           }
           return IKS_BADXML;
         }
-        grammar->encoding = switch_core_strdup(grammar->pool, encoding);
+        grammar->encoding = strdup(encoding);
       } else if (!strcmp("language", atts[i])) {
         char *language = atts[i + 1];
         if (cspeech_zstr(language)) {
@@ -713,7 +710,7 @@ static int process_grammar(struct srgs_grammar *grammar, char **atts)
           }
           return IKS_BADXML;
         }
-        grammar->language = switch_core_strdup(grammar->pool, language);
+        grammar->language = strdup(language);
       } else if (!strcmp("root", atts[i])) {
         char *root = atts[i + 1];
         if (cspeech_zstr(root)) {
@@ -722,7 +719,7 @@ static int process_grammar(struct srgs_grammar *grammar, char **atts)
           }
           return IKS_BADXML;
         }
-        grammar->cur->value.root = switch_core_strdup(grammar->pool, root);
+        grammar->cur->value.root = strdup(root);
       }
       i += 2;
     }
@@ -740,7 +737,7 @@ static int tag_hook(void *user_data, char *name, char **atts, int type)
 
   if (type == IKS_OPEN || type == IKS_SINGLE) {
     enum srgs_node_type ntype = string_to_node_type(name);
-    grammar->cur = sn_insert(grammar->pool, grammar->cur, name, ntype);
+    grammar->cur = sn_insert(grammar->cur, name, ntype);
     grammar->cur->tag_def = globals.tag_defs[name];
     if (!grammar->cur->tag_def) {
       grammar->cur->tag_def = globals.tag_defs["ANY"];
@@ -770,7 +767,7 @@ static int process_cdata_tag(struct srgs_grammar *grammar, char *data, size_t le
   if (item && item->type == SNT_ITEM) {
     if (grammar->tag_count < MAX_TAGS) {
       /* grammar gets the tag name, item gets the unique tag number */
-      char *tag = switch_core_alloc(grammar->pool, sizeof(char) * (len + 1));
+      char *tag = (char *)malloc(sizeof(char) * (len + 1));
       tag[len] = '\0';
       strncpy(tag, data, len);
       grammar->tags[++grammar->tag_count] = tag;
@@ -799,15 +796,15 @@ static int process_cdata_tokens(struct srgs_grammar *grammar, char *data, size_t
   if (grammar->digit_mode) {
     for (i = 0; i < len; i++) {
       if (isdigit(data[i]) || data[i] == '#' || data[i] == '*') {
-        char *digit = switch_core_alloc(grammar->pool, sizeof(char) * 2);
+        char *digit = (char *)malloc(sizeof(char) * 2);
         digit[0] = data[i];
         digit[1] = '\0';
-        string = sn_insert_string(grammar->pool, string, digit);
+        string = sn_insert_string(string, digit);
         sn_log_node_open(string);
       }
     }
   } else {
-    char *data_dup = switch_core_alloc(grammar->pool, sizeof(char) * (len + 1));
+    char *data_dup = (char *)malloc(sizeof(char) * (len + 1));
     char *start = data_dup;
     char *end = start + len - 1;
     memcpy(data_dup, data, len);
@@ -820,7 +817,7 @@ static int process_cdata_tokens(struct srgs_grammar *grammar, char *data, size_t
         *end = '\0';
       }
       if (!cspeech_zstr(start)) {
-        string = sn_insert_string(grammar->pool, string, start);
+        string = sn_insert_string(string, start);
       }
     }
   }
@@ -866,7 +863,6 @@ struct srgs_grammar *srgs_grammar_new(struct srgs_parser *parser)
   struct srgs_grammar *grammar = NULL;
   switch_core_new_memory_pool(&pool);
   grammar = switch_core_alloc(pool, sizeof (*grammar));
-  grammar->pool = pool;
   grammar->root = NULL;
   grammar->cur = NULL;
   grammar->uuid = (parser && !cspeech_zstr(parser->uuid)) ? switch_core_strdup(pool, parser->uuid) : "";
@@ -880,14 +876,12 @@ struct srgs_grammar *srgs_grammar_new(struct srgs_parser *parser)
  */
 static void srgs_grammar_destroy(struct srgs_grammar *grammar)
 {
-  switch_memory_pool_t *pool = grammar->pool;
   if (grammar->compiled_regex) {
     pcre_free(grammar->compiled_regex);
   }
   if (grammar->jsgf_file_name) {
     switch_file_remove(grammar->jsgf_file_name, pool);
   }
-  switch_core_destroy_memory_pool(&pool);
 }
 
 /**
@@ -978,7 +972,7 @@ static int create_regexes(struct srgs_grammar *grammar, struct srgs_node *node, 
           } else {
             new_stream.write_function(&new_stream, "%s", "$");
           }
-          grammar->regex = switch_core_strdup(grammar->pool, new_stream.data);
+          grammar->regex = strdup(new_stream.data);
           switch_safe_free(new_stream.data);
         }
         if(globals.logging_callback) {
@@ -1002,7 +996,7 @@ static int create_regexes(struct srgs_grammar *grammar, struct srgs_node *node, 
             return 0;
           }
         }
-        node->value.rule.regex = switch_core_strdup(grammar->pool, new_stream.data);
+        node->value.rule.regex = strdup(new_stream.data);
         if(globals.logging_callback) {
           globals.logging_callback(grammar, CSPEECH_LOG_DEBUG, "%s regex = %s\n", node->value.rule.id, node->value.rule.regex);
         }
@@ -1499,7 +1493,7 @@ static int create_jsgf(struct srgs_grammar *grammar, struct srgs_node *node, swi
             }
           }
         }
-        grammar->jsgf = switch_core_strdup(grammar->pool, new_stream.data);
+        grammar->jsgf = strdup(new_stream.data);
         switch_safe_free(new_stream.data);
         if(globals.logging_callback) {
           globals.logging_callback(NULL, CSPEECH_LOG_DEBUG, "document jsgf = %s\n", grammar->jsgf);
