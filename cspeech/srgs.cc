@@ -1232,7 +1232,7 @@ struct srgs_grammar *srgs_parse(struct srgs_parser *parser, const char *document
 
   if (cspeech_zstr(document)) {
     if(globals.logging_callback) {
-      globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_INFO, "Missing grammar document\n");
+      globals.logging_callback(parser, CSPEECH_LOG_INFO, "Missing grammar document\n");
     }
     return NULL;
   }
@@ -1244,21 +1244,21 @@ struct srgs_grammar *srgs_parse(struct srgs_parser *parser, const char *document
     int result = 0;
     iksparser *p;
     if(globals.logging_callback) {
-      globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_DEBUG, "Parsing new grammar\n");
+      globals.logging_callback(parser, CSPEECH_LOG_DEBUG, "Parsing new grammar\n");
     }
     grammar = srgs_grammar_new(parser);
     p = iks_sax_new(grammar, tag_hook, cdata_hook);
     if (iks_parse(p, document, 0, 1) == IKS_OK) {
       if (grammar->root) {
         if(globals.logging_callback) {
-          globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_DEBUG, "Resolving references\n");
+          globals.logging_callback(parser, CSPEECH_LOG_DEBUG, "Resolving references\n");
         }
         if (resolve_refs(grammar, grammar->root, 0)) {
           result = 1;
         }
       } else {
         if(globals.logging_callback) {
-          globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_INFO, "Nothing to parse!\n");
+          globals.logging_callback(parser, CSPEECH_LOG_INFO, "Nothing to parse!\n");
         }
       }
     }
@@ -1271,12 +1271,12 @@ struct srgs_grammar *srgs_parse(struct srgs_parser *parser, const char *document
         grammar = NULL;
       }
       if(globals.logging_callback) {
-        globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_INFO, "Failed to parse grammar\n");
+        globals.logging_callback(parser, CSPEECH_LOG_INFO, "Failed to parse grammar\n");
       }
     }
   } else {
     if(globals.logging_callback) {
-      globals.logging_callback(SWITCH_CHANNEL_UUID_LOG(parser->uuid), CSPEECH_LOG_DEBUG, "Using cached grammar\n");
+      globals.logging_callback(parser, CSPEECH_LOG_DEBUG, "Using cached grammar\n");
     }
   }
   switch_mutex_unlock(parser->mutex);
