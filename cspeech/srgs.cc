@@ -609,7 +609,7 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
           }
           return IKS_BADXML;
         }
-        if (switch_is_number(repeat)) {
+        if (cspeech_is_number(repeat)) {
           /* single number */
           int repeat_val = atoi(repeat);
           if (repeat_val < 1) {
@@ -633,7 +633,7 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
             }
             return IKS_BADXML;
           }
-          if (switch_is_number(min) && (switch_is_number(max) || cspeech_zstr(max))) {
+          if (cspeech_is_number(min) && (cspeech_is_number(max) || cspeech_zstr(max))) {
             int min_val = atoi(min);
             int max_val = cspeech_zstr(max) ? INT_MAX : atoi(max);
             /* max must be >= min and > 0
@@ -655,7 +655,7 @@ static int process_item(struct srgs_grammar *grammar, char **atts)
         }
       } else if (!strcmp("weight", atts[i])) {
         const char *weight = atts[i + 1];
-        if (cspeech_zstr(weight) || !switch_is_number(weight) || atof(weight) < 0) {
+        if (cspeech_zstr(weight) || !cspeech_is_number(weight) || atof(weight) < 0) {
           if(globals.logging_callback) {
             globals.logging_callback(grammar, CSPEECH_LOG_INFO, "<item> weight is not a number >= 0\n");
           }

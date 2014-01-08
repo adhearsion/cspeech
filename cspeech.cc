@@ -15,3 +15,22 @@ static inline int cspeech_zstr(const char *s)
 {
   return !s || *s == '\0';
 }
+
+static inline bool cspeech_is_number(const char *str)
+{
+  const char *p;
+  bool r = true;
+
+  if (*str == '-' || *str == '+') {
+    str++;
+  }
+
+  for (p = str; p && *p; p++) {
+    if (!(*p == '.' || (*p > 47 && *p < 58))) {
+      r = false;
+      break;
+    }
+  }
+
+  return r;
+}

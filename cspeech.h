@@ -15,6 +15,7 @@
 #define CSPEECH_H_
 
 static inline int cspeech_zstr(const char *s);
+static inline bool cspeech_is_number(const char *str);
 
 typedef enum {
   CSPEECH_LOG_DEBUG = 7,
