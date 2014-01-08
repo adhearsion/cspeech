@@ -92,7 +92,7 @@ enum srgs_node_type {
  */
 struct rule_value {
   char is_public;
-  char *id;
+  const char *id;
   char *regex;
 };
 
@@ -153,7 +153,7 @@ struct srgs_grammar {
   /** current node being parsed */
   struct srgs_node *cur;
   /** rule names mapped to node */
-  std::map<const char *,struct stgs_node> rules;
+  std::map<const char *,struct srgs_node *> rules;
   /** possible matching tags */
   const char *tags[MAX_TAGS + 1];
   /** number of tags */
@@ -325,10 +325,12 @@ static void sn_log_node_close(struct srgs_node *node)
  * @param type of node
  * @return the node
  */
-static struct srgs_node *sn_new(switch_memory_pool_t *pool, const char *name, enum srgs_node_type type)
+static struct srgs_node *sn_new(const char *name, enum srgs_node_type type)
 {
-  struct srgs_node *node = switch_core_alloc(pool, sizeof(*node));
-  node->name = switch_core_strdup(pool, name);
+  struct srgs_node *node = (struct srgs_node *) malloc(sizeof(srgs_node));
+  char name_copy[strlen(name)];
+  std::strcpy(name_copy, name);
+  node->name = name_copy;
   node->type = type;
   return node;
 }
@@ -356,7 +358,7 @@ static struct srgs_node *sn_find_last_sibling(struct srgs_node *node)
 static struct srgs_node *sn_insert(switch_memory_pool_t *pool, struct srgs_node *parent, const char *name, enum srgs_node_type type)
 {
   struct srgs_node *sibling = parent ? sn_find_last_sibling(parent->child) : NULL;
-  struct srgs_node *child = sn_new(pool, name, type);
+  struct srgs_node *child = sn_new(name, type);
   if (parent) {
     parent->num_children++;
     child->parent = parent;
@@ -536,7 +538,7 @@ static int process_rule(struct srgs_grammar *grammar, char **atts)
     return IKS_BADXML;
   }
 
-  if (grammar->rules.count[rule->value.rule.id] > 0) {
+  if (grammar->rules.count(rule->value.rule.id) > 0) {
     if(globals.logging_callback) {
       globals.logging_callback(grammar, CSPEECH_LOG_INFO, "Duplicate rule ID: %s\n", rule->value.rule.id);
     }
